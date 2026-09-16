@@ -21,6 +21,13 @@ module.exports = {
       version: '1.8',
       baseUrl: '/api/plugins/certificados/v1.8',
       status: 'configurado'
+    },
+    {
+      key: 'limites',
+      name: 'Límites y Alertas',
+      version: '1.0',
+      baseUrl: '/api/plugins/limites/v1.0',
+      status: 'nuevo'
     }
   ]
 };

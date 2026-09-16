@@ -12,6 +12,7 @@ export default function PluginCertificadosPage() {
   const [language, setLanguage] = useState(null);
   const [result, setResult] = useState(null);
   const [generating, setGenerating] = useState(false);
+  const [history, setHistory] = useState(null);
 
   useEffect(() => {
     if (!plugin) return;
@@ -20,10 +21,20 @@ export default function PluginCertificadosPage() {
         setPayload(data);
         setSelectedTypeId(data.types[0]?.id || null);
         setLanguage(data.meta.languages[0] || null);
+        // El historial es una capacidad nueva (v1.3): solo se pide si esta
+        // versión la anuncia en meta.history, no todas las versiones la tienen.
+        if (data.meta.history) loadHistory();
       })
       .catch((err) => setError(err.message));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [plugin?.baseUrl]);
+
+  function loadHistory() {
+    if (!plugin) return;
+    apiFetch(`${plugin.baseUrl}/history`, { token })
+      .then((data) => setHistory(data.history))
+      .catch((err) => setError(err.message));
+  }
 
   async function handleGenerate() {
     if (!plugin || !selectedTypeId) return;
@@ -36,6 +47,7 @@ export default function PluginCertificadosPage() {
         body: { typeId: selectedTypeId, language }
       });
       setResult(res);
+      if (payload?.meta.history) loadHistory();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -128,6 +140,41 @@ export default function PluginCertificadosPage() {
           )}
         </div>
       </div>
+
+      {meta.history && (
+        <div style={{ marginTop: 28 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>Historial de certificados generados</div>
+          {!history ? (
+            <div style={{ fontSize: 12.5, color: '#71717a' }}>Cargando historial…</div>
+          ) : history.length === 0 ? (
+            <div style={{ fontSize: 12.5, color: '#71717a' }}>Todavía no has generado ningún certificado.</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {history.map((item) => (
+                <div
+                  key={item.certificateId}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    background: '#fff',
+                    border: '1px solid #e4e4e7',
+                    borderRadius: 10,
+                    padding: '10px 14px',
+                    fontSize: 12.5
+                  }}
+                >
+                  <div>
+                    <div style={{ fontWeight: 600 }}>{item.typeName}</div>
+                    <div style={{ color: '#a1a1aa', fontSize: 11.5 }}>{item.certificateId}</div>
+                  </div>
+                  <div style={{ color: '#71717a' }}>{new Date(item.issuedAt).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </Shell>
   );
 }

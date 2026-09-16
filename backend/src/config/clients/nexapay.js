@@ -18,8 +18,8 @@ module.exports = {
     {
       key: 'certificados',
       name: 'Generar Certificados',
-      version: '1.2',
-      baseUrl: '/api/plugins/certificados/v1.2',
+      version: '1.3',
+      baseUrl: '/api/plugins/certificados/v1.3',
       status: 'activo'
     }
   ]

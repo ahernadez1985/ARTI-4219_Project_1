@@ -12,6 +12,8 @@ const transaccionesV23 = require('./routes/plugins/transacciones.v2_3.routes');
 const transaccionesV31 = require('./routes/plugins/transacciones.v3_1.routes');
 const certificadosV18 = require('./routes/plugins/certificados.v1_8.routes');
 const certificadosV12 = require('./routes/plugins/certificados.v1_2.routes');
+const certificadosV13 = require('./routes/plugins/certificados.v1_3.routes');
+const limitesV10 = require('./routes/plugins/limites.v1_0.routes');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -63,6 +65,21 @@ app.use(
   requireAuth,
   requirePluginVersion('certificados', '1.2'),
   certificadosV12
+);
+// v1.3 es la mejora sobre v1.2 (agrega historial de certificados emitidos).
+// v1.2 se deja montada aunque ya ningún cliente apunte a ella: así una
+// integración que quedó en esa versión durante una migración sigue viva.
+app.use(
+  '/api/plugins/certificados/v1.3',
+  requireAuth,
+  requirePluginVersion('certificados', '1.3'),
+  certificadosV13
+);
+app.use(
+  '/api/plugins/limites/v1.0',
+  requireAuth,
+  requirePluginVersion('limites', '1.0'),
+  limitesV10
 );
 
 // --- 404 y manejo de errores ---

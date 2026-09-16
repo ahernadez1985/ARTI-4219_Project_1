@@ -5,10 +5,12 @@ import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import PluginTransaccionesPage from './pages/PluginTransaccionesPage';
 import PluginCertificadosPage from './pages/PluginCertificadosPage';
+import PluginLimitesPage from './pages/PluginLimitesPage';
 
 const PLUGIN_PAGES = {
   transacciones: PluginTransaccionesPage,
-  certificados: PluginCertificadosPage
+  certificados: PluginCertificadosPage,
+  limites: PluginLimitesPage
 };
 
 function PluginRouter() {
