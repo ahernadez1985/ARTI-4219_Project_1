@@ -1,5 +1,5 @@
 const { verifyToken } = require('../utils/jwt');
-const { clientHasPluginVersion } = require('../config/clients');
+const { clientHasPluginVersion, isClientAllowed } = require('../config/clients');
 
 // Verifica el JWT enviado en "Authorization: Bearer <token>" y adjunta
 // la identidad del usuario/cliente a req.user.
@@ -11,13 +11,21 @@ function requireAuth(req, res, next) {
     return res.status(401).json({ error: 'unauthorized', message: 'Falta el token de autenticación.' });
   }
 
+  let payload;
   try {
-    const payload = verifyToken(token);
-    req.user = payload; // { sub, email, clientId }
-    return next();
+    payload = verifyToken(token);
   } catch (err) {
     return res.status(401).json({ error: 'invalid_token', message: 'Token inválido o expirado.' });
   }
+
+  // Un token válido de otro cliente (p. ej. emitido por otra instancia con el
+  // mismo JWT_SECRET) no sirve en una instancia de un solo cliente.
+  if (!isClientAllowed(payload.clientId)) {
+    return res.status(403).json({ error: 'client_not_allowed', message: 'Este entorno es de otro cliente.' });
+  }
+
+  req.user = payload; // { sub, email, clientId }
+  return next();
 }
 
 // Autorización a nivel de plugin versionado: además de estar autenticado,

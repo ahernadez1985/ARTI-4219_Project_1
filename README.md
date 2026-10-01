@@ -101,6 +101,24 @@ cualquiera de los usuarios de demo y navega el panel: los plugins que
 aparecen y las pantallas a las que llevan dependen enteramente de lo que el
 backend reporte para ese cliente.
 
+## Modo de un solo cliente (`CLIENT_ID`)
+
+Si el backend arranca con la variable `CLIENT_ID` (por ejemplo
+`CLIENT_ID=BA-004821`), la instancia atiende solo a ese cliente:
+
+- `POST /api/v1/auth/login` responde `403 client_not_allowed` a usuarios de
+  otros clientes (el frontend muestra el mensaje en el login).
+- Cualquier token de otro cliente (aunque esté firmado con el mismo
+  `JWT_SECRET`) se rechaza con `403` en todas las rutas protegidas.
+- `GET /api/v1/health` informa el cliente (`clientId`, o `null` en modo
+  multi-cliente).
+- Si `CLIENT_ID` no existe en `backend/src/config/clients`, el backend no
+  arranca.
+
+Sin la variable, el portal es multi-cliente como siempre. Los entornos
+efímeros del Golden Path (`golden-path/entorno-cliente`) la definen con el
+cliente elegido en Backstage.
+
 ## Qué es real y qué es simulado
 
 - **Real**: autenticación con JWT + bcrypt, autorización por versión de

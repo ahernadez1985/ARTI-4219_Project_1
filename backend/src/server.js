@@ -5,6 +5,7 @@ const cors = require('cors');
 const morgan = require('morgan');
 
 const { requireAuth, requirePluginVersion } = require('./middleware/auth');
+const { SINGLE_CLIENT_ID } = require('./config/clients');
 
 const authRoutes = require('./routes/auth.routes');
 const clientsRoutes = require('./routes/clients.routes');
@@ -24,7 +25,8 @@ app.use(morgan('dev'));
 
 // --- Salud del servicio ---
 app.get('/api/v1/health', (req, res) => {
-  res.json({ status: 'ok', service: 'portal-plugins-backend' });
+  // clientId: null = multi-cliente; con CLIENT_ID, el único cliente atendido
+  res.json({ status: 'ok', service: 'portal-plugins-backend', clientId: SINGLE_CLIENT_ID });
 });
 
 // --- Autenticación e identidad ---

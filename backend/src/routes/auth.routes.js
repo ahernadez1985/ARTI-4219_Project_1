@@ -1,7 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const { findByEmail, findById } = require('../data/users');
-const { getClientById } = require('../config/clients');
+const { getClientById, isClientAllowed } = require('../config/clients');
 const { signToken } = require('../utils/jwt');
 const { requireAuth } = require('../middleware/auth');
 
@@ -26,6 +26,15 @@ router.post('/login', async (req, res) => {
   const passwordOk = await bcrypt.compare(password, user.passwordHash);
   if (!passwordOk) {
     return res.status(401).json({ error: 'invalid_credentials', message: 'Credenciales inválidas.' });
+  }
+
+  // En modo de un solo cliente (CLIENT_ID), los usuarios de otros clientes
+  // no pueden entrar a esta instancia.
+  if (!isClientAllowed(user.clientId)) {
+    return res.status(403).json({
+      error: 'client_not_allowed',
+      message: 'Este entorno es de otro cliente; tu usuario no tiene acceso.'
+    });
   }
 
   const client = getClientById(user.clientId);
