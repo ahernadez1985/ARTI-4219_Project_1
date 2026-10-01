@@ -1,0 +1,120 @@
+# =====================================================================
+# INSTRUCCIONES PARA EL ESTUDIANTE:
+# Este archivo es un esqueleto con secciones marcadas con TODO.
+# Tu tarea es completarlo basándote en tu investigación de la Fase 2.
+#
+# Documentación de referencia:
+# https://backstage.io/docs/features/software-templates/writing-templates
+# =====================================================================
+
+# TODO 1: Completa los campos de apiVersion y kind.
+apiVersion: # TODO: ¿Cuál es el apiVersion correcto para un Template?
+kind: # TODO: ¿Cuál es el kind correcto para un Template?
+
+metadata:
+  name: microservicio-nodejs
+  title: "Microservicio NodeJS — Seguro por Defecto"
+  description: >
+    Golden Path para crear un nuevo microservicio NodeJS con estructura base,
+    publicarlo en tu repositorio de GitHub y registrarlo en el Software Catalog.
+  tags:
+    - nodejs
+    - microservicio
+    - golden-path
+
+# =====================================================================
+# SECCIÓN PARAMETERS: Define el formulario que verá el desarrollador.
+# =====================================================================
+parameters:
+  - title: "Información del Microservicio"
+    required:
+      - serviceName
+      - owner
+    properties:
+      serviceName:
+        title: "Nombre del Microservicio"
+        type: string
+        description: >
+          Nombre único del microservicio. Debe estar en minúsculas,
+          sin espacios ni caracteres especiales. Ejemplo: pagos-service.
+        # TODO 2: Agrega las propiedades de JSON Schema para:
+        #   a) Limitar el nombre a máximo 50 caracteres
+        #   b) Validar que solo use letras minúsculas, números y guiones (-)
+        ui:autofocus: true
+        ui:help: "Usa minúsculas, números y guiones. Ej: mi-nuevo-servicio"
+
+      owner:
+        title: "Propietario (Owner)"
+        type: string
+        description: >
+          El equipo o usuario responsable de este microservicio.
+          Debe ser una entidad válida del Software Catalog.
+        # TODO 3: Reemplaza el tipo de campo por el widget especial de Backstage
+        # que lee los owners directamente del Software Catalog.
+        # Pista: investiga 'ui:field: OwnerPicker' y sus opciones de catálogo.
+        ui:help: "Selecciona el equipo o usuario propietario del servicio"
+
+# =====================================================================
+# SECCIÓN STEPS: Define las acciones automatizadas del scaffolder.
+# =====================================================================
+steps:
+  # -------------------------------------------------------------------
+  # PASO 1: Descargar y parametrizar el skeleton del microservicio.
+  # -------------------------------------------------------------------
+  - id: fetch-base
+    name: "Descargar y parametrizar el skeleton"
+    action: fetch:template
+    input:
+      # TODO 5: Especifica la URL del repositorio que contiene el skeleton.
+      url: # TODO: pon aquí la URL de tu skeleton en GitHub
+      values:
+        # TODO 6: Mapea aquí los parámetros del formulario a los valores
+        # que usará el skeleton. ¿Cómo se referencia un parámetro del
+        # formulario dentro de la sección 'steps'?
+
+  # -------------------------------------------------------------------
+  # PASO 2: Publicar el código en un repositorio de GitHub.
+  # -------------------------------------------------------------------
+  - id: publish-github
+    name: "Publicar en GitHub"
+    action: publish:github
+    input:
+      # TODO 7: Define el nombre del repositorio a crear en GitHub.
+      # Usa el parámetro 'serviceName' para que el nombre del repo
+      # coincida con el nombre del microservicio.
+      repoUrl: # TODO: construye la URL del repo con el nombre del servicio
+      description: # TODO: usa el parámetro serviceName para construir una descripción dinámica
+      # TODO 8: Define la visibilidad del repositorio.
+      repoVisibility: private
+      defaultBranch: main
+
+      # TODO 9 (Avanzado/Opcional): ¿Cómo protegerías la rama 'main'
+      # para que requiera Pull Requests antes de hacer merge?
+
+  # -------------------------------------------------------------------
+  # PASO 3: Registrar el componente en el Software Catalog de Backstage.
+  # -------------------------------------------------------------------
+  - id: register-catalog
+    name: "Registrar en el Software Catalog"
+    action: catalog:register
+    input:
+      # TODO 10: Define la URL del catalog-info.yaml que acaba de publicarse.
+      # Para esto, necesitas usar el OUTPUT del paso anterior ('publish-github').
+      repoContentsUrl: # TODO
+      catalogInfoPath: "/catalog-info.yaml"
+
+# =====================================================================
+# SECCIÓN OUTPUT: Muestra información útil al usuario al finalizar.
+# =====================================================================
+output:
+  # TODO 11: Agrega aquí al menos 2 links para mostrar al usuario:
+  #   1. Un link al repositorio recién creado en GitHub
+  #   2. Un link al componente en el Software Catalog de Backstage
+  links:
+    - title: # TODO: Título del primer link (ej: "Ver repositorio en GitHub")
+      url: # TODO: URL del output del paso publish-github
+      icon: github
+
+    - title: # TODO: Título del segundo link (ej: "Ver en el Software Catalog")
+      entityRef: # TODO: referencia la entity registrada en el catálogo
+      icon: catalog

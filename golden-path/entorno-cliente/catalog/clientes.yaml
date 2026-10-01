@@ -1,0 +1,24 @@
+# GENERADO por scripts/sync-clients.sh desde https://github.com/ahernadez1985/ARTI-4219_Project_1.git @ 4ea9ecb
+# (backend/src/config/clients). No editar a mano: vuelve a ejecutar el script.
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: BA-004821
+  title: "Banco Andino (BA-004821)"
+  description: "Cliente del Portal de Plugins (banco-andino.js)"
+  tags: [cliente]
+spec:
+  type: cliente
+  owner: group:default/plataforma
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: NX-11029
+  title: "NexaPay (NX-11029)"
+  description: "Cliente del Portal de Plugins (nexapay.js)"
+  tags: [cliente]
+spec:
+  type: cliente
+  owner: group:default/plataforma

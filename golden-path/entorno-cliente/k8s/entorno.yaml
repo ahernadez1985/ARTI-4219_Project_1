@@ -1,0 +1,279 @@
+# =====================================================================
+# Entorno efímero del Portal de Plugins por (clientId, commit)
+#
+# FUENTE ÚNICA de los manifiestos. Usa la misma sintaxis de placeholders
+# que el scaffolder de Backstage, así:
+#   - scripts/deploy-env.sh la renderiza con perl y aplica con kubectl.
+#   - template.yaml contiene este mismo bloque (copiado con
+#     scripts/sync-template.sh) en el paso kube:apply.
+# El commit SIEMPRE llega resuelto a SHA completo: en Backstage lo resuelve
+# la acción git:pull:commit (steps['pull-commit']); en los scripts, git.
+#
+# Qué hace:
+#   1. Namespace aislado: env-<clientid>-<sha7>  (entornos en paralelo)
+#   2. ConfigMaps: metadatos (cliente, commit, URL pública) + nginx
+#   3. Deployment "portal":
+#        init "fetch"          -> git fetch del commit EXACTO
+#        init "build-backend"  -> npm ci --omit=dev en backend/
+#        init "build-frontend" -> npm ci + vite build en frontend/
+#        "backend"             -> node src/server.js en :4000
+#        "web"                 -> nginx: SPA + proxy /api -> backend
+#   4. Service + Ingress -> http://env-<clientid>-<sha7>.localtest.me:8080
+# =====================================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: env-${{ parameters.clientId | parseEntityRef | pick('name') | lower }}-${{ steps['pull-commit'].output.shortCommit }}
+  labels:
+    app.kubernetes.io/managed-by: golden-path-entorno-cliente
+    plataforma/client-id: ${{ parameters.clientId | parseEntityRef | pick('name') }}
+    plataforma/git-commit: ${{ steps['pull-commit'].output.commit }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: environment-metadata
+  namespace: env-${{ parameters.clientId | parseEntityRef | pick('name') | lower }}-${{ steps['pull-commit'].output.shortCommit }}
+data:
+  CLIENT_ID: "${{ parameters.clientId | parseEntityRef | pick('name') }}"
+  GIT_COMMIT: "${{ steps['pull-commit'].output.commit }}"
+  REPO_URL: "${{ parameters.repoUrl }}"
+  PUBLIC_URL: "http://env-${{ parameters.clientId | parseEntityRef | pick('name') | lower }}-${{ steps['pull-commit'].output.shortCommit }}.localtest.me:8080"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-template
+  namespace: env-${{ parameters.clientId | parseEntityRef | pick('name') | lower }}-${{ steps['pull-commit'].output.shortCommit }}
+data:
+  # La imagen oficial de nginx pasa /etc/nginx/templates/*.template por
+  # envsubst (solo variables de entorno definidas; $uri, $host quedan igual).
+  default.conf.template: |
+    server {
+      listen 80;
+      root /workspace/www;
+
+      # API del portal (contenedor "backend" del mismo pod)
+      location /api/ {
+        proxy_pass http://127.0.0.1:4000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      }
+
+      # Qué cliente y commit corre este entorno
+      location = /__entorno {
+        default_type application/json;
+        return 200 '{"clientId":"${CLIENT_ID}","commit":"${GIT_COMMIT}","repo":"${REPO_URL}"}\n';
+      }
+
+      # SPA (react-router): cualquier ruta desconocida sirve index.html
+      location / {
+        try_files $uri $uri/ /index.html;
+      }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: portal
+  namespace: env-${{ parameters.clientId | parseEntityRef | pick('name') | lower }}-${{ steps['pull-commit'].output.shortCommit }}
+  labels:
+    app: portal
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: portal
+  template:
+    metadata:
+      labels:
+        app: portal
+        plataforma/client-id: ${{ parameters.clientId | parseEntityRef | pick('name') }}
+    spec:
+      volumes:
+        - name: workspace
+          emptyDir: {}
+        - name: nginx-template
+          configMap:
+            name: nginx-template
+      initContainers:
+        # ---- 1) Traer el commit exacto ------------------------------------
+        - name: fetch
+          image: alpine/git:2.45.2
+          envFrom:
+            - configMapRef:
+                name: environment-metadata
+          env:
+            - name: GIT_TOKEN            # opcional, solo para repos privados
+              valueFrom:
+                secretKeyRef:
+                  name: git-credentials
+                  key: token
+                  optional: true
+          command: ["sh", "-c"]
+          args:
+            - |
+              set -eu
+              # El token viaja como cabecera HTTP: no queda en .git/config
+              if [ -n "${GIT_TOKEN:-}" ]; then
+                export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.extraHeader
+                export GIT_CONFIG_VALUE_0="Authorization: Basic $(printf 'x-access-token:%s' "$GIT_TOKEN" | base64 | tr -d '\n')"
+              fi
+              rm -rf /workspace/src && mkdir -p /workspace/src && cd /workspace/src
+              git init --quiet && git remote add origin "$REPO_URL"
+              echo ">> fetch $REPO_URL @ $GIT_COMMIT"
+              git fetch --quiet --depth 1 origin "$GIT_COMMIT" \
+                || git fetch --quiet --filter=blob:none origin '+refs/heads/*:refs/remotes/origin/*'
+              git -c advice.detachedHead=false checkout --quiet --detach "$GIT_COMMIT"
+              echo ">> HEAD $(git rev-parse HEAD) — $(git log -1 --format=%s)"
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
+        # ---- 2) Construir el backend ---------------------------------------
+        - name: build-backend
+          image: node:24-alpine
+          workingDir: /workspace/src/backend
+          command: ["sh", "-c"]
+          args:
+            - |
+              set -eu
+              if [ -f package-lock.json ]; then npm ci --omit=dev --no-audit --no-fund; else npm install --omit=dev --no-audit --no-fund; fi
+              echo ">> backend OK"
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
+          resources:
+            # requests explícitos: sin ellos k8s usa el limit como request y
+            # cada entorno reservaría 1-1.5Gi para siempre (solo se usa al construir)
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 1Gi
+        # ---- 3) Construir el frontend apuntando a la URL del entorno -------
+        - name: build-frontend
+          image: node:24-alpine
+          workingDir: /workspace/src/frontend
+          envFrom:
+            - configMapRef:
+                name: environment-metadata
+          command: ["sh", "-c"]
+          args:
+            - |
+              set -eu
+              if [ -f package-lock.json ]; then npm ci --no-audit --no-fund; else npm install --no-audit --no-fund; fi
+              VITE_API_BASE_URL="$PUBLIC_URL" npm run build
+              rm -rf /workspace/www && cp -R dist /workspace/www
+              echo ">> frontend OK (API en $PUBLIC_URL)"
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 1536Mi
+      containers:
+        # ---- 4) API del portal ---------------------------------------------
+        - name: backend
+          image: node:24-alpine
+          workingDir: /workspace/src/backend
+          envFrom:
+            - configMapRef:
+                name: environment-metadata
+          env:
+            - name: PORT
+              value: "4000"
+            - name: NODE_ENV
+              value: development
+            - name: JWT_SECRET           # solo laboratorio
+              value: entorno-efimero-no-usar-en-produccion
+            - name: CORS_ORIGIN
+              valueFrom:
+                configMapKeyRef:
+                  name: environment-metadata
+                  key: PUBLIC_URL
+          command: ["npm", "start"]
+          ports:
+            - name: api
+              containerPort: 4000
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: api
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: api
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+        # ---- 5) Frontend estático + proxy /api ------------------------------
+        - name: web
+          image: nginx:1.27-alpine
+          envFrom:
+            - configMapRef:
+                name: environment-metadata
+          ports:
+            - name: http
+              containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: http
+            periodSeconds: 5
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
+              readOnly: true
+            - name: nginx-template
+              mountPath: /etc/nginx/templates
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              memory: 64Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: portal
+  namespace: env-${{ parameters.clientId | parseEntityRef | pick('name') | lower }}-${{ steps['pull-commit'].output.shortCommit }}
+spec:
+  selector:
+    app: portal
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: portal
+  namespace: env-${{ parameters.clientId | parseEntityRef | pick('name') | lower }}-${{ steps['pull-commit'].output.shortCommit }}
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: env-${{ parameters.clientId | parseEntityRef | pick('name') | lower }}-${{ steps['pull-commit'].output.shortCommit }}.localtest.me
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: portal
+                port:
+                  name: http

@@ -1,0 +1,35 @@
+# Fragmento para app-config.local.yaml de tu instancia de Backstage.
+# Los valores salen de scripts/setup-kind.sh:
+#   export K8S_KIND_URL=...   export K8S_KIND_TOKEN=...
+kubernetes:
+  serviceLocatorMethod:
+    type: multiTenant
+  clusterLocatorMethods:
+    - type: config
+      clusters:
+        - name: kind-golden-path        # = clusterName en template.yaml
+          url: ${K8S_KIND_URL}
+          authProvider: serviceAccount
+          serviceAccountToken: ${K8S_KIND_TOKEN}
+          skipTLSVerify: true           # solo laboratorio local
+
+# OJO: los arrays de app-config.local.yaml REEMPLAZAN a los de app-config.yaml;
+# repite aquí las locations que ya tengas.
+catalog:
+  locations:
+    # Registra el template (ajusta la ruta a donde esté este repo).
+    # Ruta local relativa a packages/backend:
+    - type: file
+      target: ../../../golden-path/entorno-cliente/template.yaml
+      rules:
+        - allow: [Template]
+    # Clientes para el dropdown del template (scripts/sync-clients.sh)
+    - type: file
+      target: ../../../golden-path/entorno-cliente/catalog/clientes.yaml
+      rules:
+        - allow: [Resource]
+    # O desde GitHub:
+    # - type: url
+    #   target: https://github.com/<usuario>/<repo>/blob/main/golden-path/entorno-cliente/template.yaml
+    #   rules:
+    #     - allow: [Template]

@@ -1,0 +1,16 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${{ values.serviceName }}
+  description: "Microservicio ${{ values.serviceName }} — generado via Backstage Golden Path"
+  annotations:
+    github.com/project-slug: ${{ values.owner }}/${{ values.serviceName }}
+    backstage.io/techdocs-ref: dir:.
+  tags:
+    - nodejs
+    - microservicio
+spec:
+  type: service
+  lifecycle: experimental
+  owner: ${{ values.owner }}
+  system: plataforma-uniandes

@@ -1,0 +1,51 @@
+# Identidad con la que el scaffolder de Backstage (acción kube:apply)
+# crea los entornos en el clúster kind. Permisos acotados a lo que
+# necesita k8s/entorno.yaml; nada de secrets ni RBAC.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: backstage
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: backstage-scaffolder
+  namespace: backstage
+---
+# Token de larga duración (solo para laboratorio local)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: backstage-scaffolder-token
+  namespace: backstage
+  annotations:
+    kubernetes.io/service-account.name: backstage-scaffolder
+type: kubernetes.io/service-account-token
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: backstage-entorno-cliente
+rules:
+  - apiGroups: [""]
+    resources: ["namespaces", "configmaps", "services", "pods", "pods/log"]
+    verbs: ["get", "list", "watch", "create", "patch", "update", "delete"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets"]
+    verbs: ["get", "list", "watch", "create", "patch", "update", "delete"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["get", "list", "watch", "create", "patch", "update", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: backstage-entorno-cliente
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: backstage-entorno-cliente
+subjects:
+  - kind: ServiceAccount
+    name: backstage-scaffolder
+    namespace: backstage

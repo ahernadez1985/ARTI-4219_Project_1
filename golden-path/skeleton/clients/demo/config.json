@@ -1,0 +1,8 @@
+{
+  "nombre": "Cliente demo",
+  "moneda": "COP",
+  "timeoutMs": 30000,
+  "features": {
+    "pagosQR": true
+  }
+}
