@@ -23,28 +23,28 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: env-${{ parameters.clientId | parseEntityRef | pick('name') | lower }}-${{ steps['pull-commit'].output.shortCommit }}
+  name: env-${{ steps['cliente'].output.entity.metadata.annotations['plataforma/client-id'] | lower }}-${{ steps['pull-commit'].output.shortCommit }}
   labels:
     app.kubernetes.io/managed-by: golden-path-entorno-cliente
-    plataforma/client-id: ${{ parameters.clientId | parseEntityRef | pick('name') }}
+    plataforma/client-id: ${{ steps['cliente'].output.entity.metadata.annotations['plataforma/client-id'] }}
     plataforma/git-commit: ${{ steps['pull-commit'].output.commit }}
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: environment-metadata
-  namespace: env-${{ parameters.clientId | parseEntityRef | pick('name') | lower }}-${{ steps['pull-commit'].output.shortCommit }}
+  namespace: env-${{ steps['cliente'].output.entity.metadata.annotations['plataforma/client-id'] | lower }}-${{ steps['pull-commit'].output.shortCommit }}
 data:
-  CLIENT_ID: "${{ parameters.clientId | parseEntityRef | pick('name') }}"
+  CLIENT_ID: "${{ steps['cliente'].output.entity.metadata.annotations['plataforma/client-id'] }}"
   GIT_COMMIT: "${{ steps['pull-commit'].output.commit }}"
   REPO_URL: "${{ parameters.repoUrl }}"
-  PUBLIC_URL: "http://env-${{ parameters.clientId | parseEntityRef | pick('name') | lower }}-${{ steps['pull-commit'].output.shortCommit }}.localtest.me:8080"
+  PUBLIC_URL: "http://env-${{ steps['cliente'].output.entity.metadata.annotations['plataforma/client-id'] | lower }}-${{ steps['pull-commit'].output.shortCommit }}.localtest.me:8080"
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: nginx-template
-  namespace: env-${{ parameters.clientId | parseEntityRef | pick('name') | lower }}-${{ steps['pull-commit'].output.shortCommit }}
+  namespace: env-${{ steps['cliente'].output.entity.metadata.annotations['plataforma/client-id'] | lower }}-${{ steps['pull-commit'].output.shortCommit }}
 data:
   # La imagen oficial de nginx pasa /etc/nginx/templates/*.template por
   # envsubst (solo variables de entorno definidas; $uri, $host quedan igual).
@@ -76,7 +76,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: portal
-  namespace: env-${{ parameters.clientId | parseEntityRef | pick('name') | lower }}-${{ steps['pull-commit'].output.shortCommit }}
+  namespace: env-${{ steps['cliente'].output.entity.metadata.annotations['plataforma/client-id'] | lower }}-${{ steps['pull-commit'].output.shortCommit }}
   labels:
     app: portal
 spec:
@@ -88,7 +88,7 @@ spec:
     metadata:
       labels:
         app: portal
-        plataforma/client-id: ${{ parameters.clientId | parseEntityRef | pick('name') }}
+        plataforma/client-id: ${{ steps['cliente'].output.entity.metadata.annotations['plataforma/client-id'] }}
     spec:
       volumes:
         - name: workspace
@@ -250,7 +250,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: portal
-  namespace: env-${{ parameters.clientId | parseEntityRef | pick('name') | lower }}-${{ steps['pull-commit'].output.shortCommit }}
+  namespace: env-${{ steps['cliente'].output.entity.metadata.annotations['plataforma/client-id'] | lower }}-${{ steps['pull-commit'].output.shortCommit }}
 spec:
   selector:
     app: portal
@@ -263,11 +263,11 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: portal
-  namespace: env-${{ parameters.clientId | parseEntityRef | pick('name') | lower }}-${{ steps['pull-commit'].output.shortCommit }}
+  namespace: env-${{ steps['cliente'].output.entity.metadata.annotations['plataforma/client-id'] | lower }}-${{ steps['pull-commit'].output.shortCommit }}
 spec:
   ingressClassName: nginx
   rules:
-    - host: env-${{ parameters.clientId | parseEntityRef | pick('name') | lower }}-${{ steps['pull-commit'].output.shortCommit }}.localtest.me
+    - host: env-${{ steps['cliente'].output.entity.metadata.annotations['plataforma/client-id'] | lower }}-${{ steps['pull-commit'].output.shortCommit }}.localtest.me
       http:
         paths:
           - path: /

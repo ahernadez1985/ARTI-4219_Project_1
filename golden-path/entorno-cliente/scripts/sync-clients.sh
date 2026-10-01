@@ -33,6 +33,10 @@ metadata:
   name: $id
   title: "${name:-$id} ($id)"
   description: "Cliente del Portal de Plugins (${f##*/})"
+  annotations:
+    # id exacto (con mayúsculas) que usa el template; el nombre de la
+    # entidad puede llegar en minúsculas desde el dropdown
+    plataforma/client-id: "$id"
   tags: [cliente]
 spec:
   type: cliente

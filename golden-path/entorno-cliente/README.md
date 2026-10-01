@@ -42,7 +42,8 @@ Backstage (formulario: Cliente [dropdown del catálogo], gitCommit, repoUrl)
   `Resource` de tipo `cliente` del catálogo, que se generan desde el repo con
   `./scripts/sync-clients.sh` → `catalog/clientes.yaml`. Al agregar un
   cliente al portal, vuelve a ejecutarlo (Backstage relee el archivo solo).
-  El template extrae el id con `parseEntityRef | pick('name')`.
+  El template lee la entidad con `catalog:fetch` y toma el id exacto de su
+  anotación `plataforma/client-id` (el nombre puede llegar en minúsculas).
   El `clientId` es el del portal (`BA-004821`, `NX-11029`, …).
   Se valida contra `backend/src/config/clients` **en ese commit**: por
   ejemplo, `NX-11029` no existe en `4c0045b` y el template falla antes de

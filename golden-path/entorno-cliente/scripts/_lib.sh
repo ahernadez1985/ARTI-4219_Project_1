@@ -53,14 +53,14 @@ resolve_commit() {
 
 # Renderiza k8s/entorno.yaml sustituyendo los placeholders de Backstage
 # (${{ parameters.* }} y ${{ steps['pull-commit'].output.* }}) por valores
-# (clientId llega del EntityPicker como resource:default/<ID>; aquí, el ID).
+# (en Backstage el id sale de la anotación plataforma/client-id del cliente).
 # literales (perl: sin escapes raros). $commit debe ser el SHA completo.
 render_manifest() {
   local client_id="$1" commit="$2" repo_url="$3"
   local out
   out=$(CID="$client_id" CIDL="$(lower "$client_id")" SHA="$commit" SHORT="${commit:0:7}" REPO="$repo_url" perl -pe '
-    s/\$\{\{ parameters\.clientId \| parseEntityRef \| pick\(.name.\) \| lower \}\}/$ENV{CIDL}/g;
-    s/\$\{\{ parameters\.clientId \| parseEntityRef \| pick\(.name.\) \}\}/$ENV{CID}/g;
+    s/\$\{\{ steps\[.cliente.\]\.output\.entity\.metadata\.annotations\[.plataforma\/client-id.\] \| lower \}\}/$ENV{CIDL}/g;
+    s/\$\{\{ steps\[.cliente.\]\.output\.entity\.metadata\.annotations\[.plataforma\/client-id.\] \}\}/$ENV{CID}/g;
     s/\$\{\{ steps\[.pull-commit.\]\.output\.shortCommit \}\}/$ENV{SHORT}/g;
     s/\$\{\{ steps\[.pull-commit.\]\.output\.commit \}\}/$ENV{SHA}/g;
     s/\$\{\{ parameters\.repoUrl \}\}/$ENV{REPO}/g;

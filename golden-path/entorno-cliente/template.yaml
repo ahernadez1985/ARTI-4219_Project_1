@@ -77,6 +77,15 @@ spec:
           ui:help: "Repo del Portal de Plugins (backend/ y frontend/ en la raíz)"
 
   steps:
+    # El dropdown entrega una referencia a la entidad (resource:default/<id>)
+    # cuyo nombre puede venir en minúsculas; el id exacto del cliente se lee
+    # de la anotación plataforma/client-id de esa entidad.
+    - id: cliente
+      name: "Leer el cliente del catálogo"
+      action: catalog:fetch
+      input:
+        entityRef: ${{ parameters.clientId }}
+
     # Plugin propio: trae el repo al commit exacto y valida cliente + estructura.
     # Falla aquí (sin tocar el clúster) si el commit no existe o no sirve.
     - id: pull-commit
@@ -90,7 +99,7 @@ spec:
           - frontend/package.json
         expectContent:
           - path: backend/src/config/clients
-            contains: ${{ parameters.clientId | parseEntityRef | pick('name') }}
+            contains: ${{ steps['cliente'].output.entity.metadata.annotations['plataforma/client-id'] }}
 
     - id: apply-entorno
       name: "Crear entorno en kind (build y arranque)"
@@ -103,28 +112,28 @@ spec:
           apiVersion: v1
           kind: Namespace
           metadata:
-            name: env-${{ parameters.clientId | parseEntityRef | pick('name') | lower }}-${{ steps['pull-commit'].output.shortCommit }}
+            name: env-${{ steps['cliente'].output.entity.metadata.annotations['plataforma/client-id'] | lower }}-${{ steps['pull-commit'].output.shortCommit }}
             labels:
               app.kubernetes.io/managed-by: golden-path-entorno-cliente
-              plataforma/client-id: ${{ parameters.clientId | parseEntityRef | pick('name') }}
+              plataforma/client-id: ${{ steps['cliente'].output.entity.metadata.annotations['plataforma/client-id'] }}
               plataforma/git-commit: ${{ steps['pull-commit'].output.commit }}
           ---
           apiVersion: v1
           kind: ConfigMap
           metadata:
             name: environment-metadata
-            namespace: env-${{ parameters.clientId | parseEntityRef | pick('name') | lower }}-${{ steps['pull-commit'].output.shortCommit }}
+            namespace: env-${{ steps['cliente'].output.entity.metadata.annotations['plataforma/client-id'] | lower }}-${{ steps['pull-commit'].output.shortCommit }}
           data:
-            CLIENT_ID: "${{ parameters.clientId | parseEntityRef | pick('name') }}"
+            CLIENT_ID: "${{ steps['cliente'].output.entity.metadata.annotations['plataforma/client-id'] }}"
             GIT_COMMIT: "${{ steps['pull-commit'].output.commit }}"
             REPO_URL: "${{ parameters.repoUrl }}"
-            PUBLIC_URL: "http://env-${{ parameters.clientId | parseEntityRef | pick('name') | lower }}-${{ steps['pull-commit'].output.shortCommit }}.localtest.me:8080"
+            PUBLIC_URL: "http://env-${{ steps['cliente'].output.entity.metadata.annotations['plataforma/client-id'] | lower }}-${{ steps['pull-commit'].output.shortCommit }}.localtest.me:8080"
           ---
           apiVersion: v1
           kind: ConfigMap
           metadata:
             name: nginx-template
-            namespace: env-${{ parameters.clientId | parseEntityRef | pick('name') | lower }}-${{ steps['pull-commit'].output.shortCommit }}
+            namespace: env-${{ steps['cliente'].output.entity.metadata.annotations['plataforma/client-id'] | lower }}-${{ steps['pull-commit'].output.shortCommit }}
           data:
             # La imagen oficial de nginx pasa /etc/nginx/templates/*.template por
             # envsubst (solo variables de entorno definidas; $uri, $host quedan igual).
@@ -156,7 +165,7 @@ spec:
           kind: Deployment
           metadata:
             name: portal
-            namespace: env-${{ parameters.clientId | parseEntityRef | pick('name') | lower }}-${{ steps['pull-commit'].output.shortCommit }}
+            namespace: env-${{ steps['cliente'].output.entity.metadata.annotations['plataforma/client-id'] | lower }}-${{ steps['pull-commit'].output.shortCommit }}
             labels:
               app: portal
           spec:
@@ -168,7 +177,7 @@ spec:
               metadata:
                 labels:
                   app: portal
-                  plataforma/client-id: ${{ parameters.clientId | parseEntityRef | pick('name') }}
+                  plataforma/client-id: ${{ steps['cliente'].output.entity.metadata.annotations['plataforma/client-id'] }}
               spec:
                 volumes:
                   - name: workspace
@@ -330,7 +339,7 @@ spec:
           kind: Service
           metadata:
             name: portal
-            namespace: env-${{ parameters.clientId | parseEntityRef | pick('name') | lower }}-${{ steps['pull-commit'].output.shortCommit }}
+            namespace: env-${{ steps['cliente'].output.entity.metadata.annotations['plataforma/client-id'] | lower }}-${{ steps['pull-commit'].output.shortCommit }}
           spec:
             selector:
               app: portal
@@ -343,11 +352,11 @@ spec:
           kind: Ingress
           metadata:
             name: portal
-            namespace: env-${{ parameters.clientId | parseEntityRef | pick('name') | lower }}-${{ steps['pull-commit'].output.shortCommit }}
+            namespace: env-${{ steps['cliente'].output.entity.metadata.annotations['plataforma/client-id'] | lower }}-${{ steps['pull-commit'].output.shortCommit }}
           spec:
             ingressClassName: nginx
             rules:
-              - host: env-${{ parameters.clientId | parseEntityRef | pick('name') | lower }}-${{ steps['pull-commit'].output.shortCommit }}.localtest.me
+              - host: env-${{ steps['cliente'].output.entity.metadata.annotations['plataforma/client-id'] | lower }}-${{ steps['pull-commit'].output.shortCommit }}.localtest.me
                 http:
                   paths:
                     - path: /
@@ -365,7 +374,7 @@ spec:
       name: "Esperar a que el portal esté listo (http:wait)"
       action: http:wait
       input:
-        url: http://env-${{ parameters.clientId | parseEntityRef | pick('name') | lower }}-${{ steps['pull-commit'].output.shortCommit }}.localtest.me:8080/__entorno
+        url: http://env-${{ steps['cliente'].output.entity.metadata.annotations['plataforma/client-id'] | lower }}-${{ steps['pull-commit'].output.shortCommit }}.localtest.me:8080/__entorno
         expectContains: ${{ steps['pull-commit'].output.commit }}
         timeoutSeconds: 600
         intervalSeconds: 5
@@ -376,24 +385,24 @@ spec:
       input:
         message: >
           Portal listo en ${{ steps['wait-ready'].output.elapsedSeconds }}s para
-          ${{ parameters.clientId | parseEntityRef | pick('name') }} @ ${{ steps['pull-commit'].output.shortCommit }}.
-          Inicia sesión en http://env-${{ parameters.clientId | parseEntityRef | pick('name') | lower }}-${{ steps['pull-commit'].output.shortCommit }}.localtest.me:8080/login
+          ${{ steps['cliente'].output.entity.metadata.annotations['plataforma/client-id'] }} @ ${{ steps['pull-commit'].output.shortCommit }}.
+          Inicia sesión en http://env-${{ steps['cliente'].output.entity.metadata.annotations['plataforma/client-id'] | lower }}-${{ steps['pull-commit'].output.shortCommit }}.localtest.me:8080/login
 
   output:
     links:
       - title: "Iniciar sesión en el portal"
-        url: http://env-${{ parameters.clientId | parseEntityRef | pick('name') | lower }}-${{ steps['pull-commit'].output.shortCommit }}.localtest.me:8080/login
+        url: http://env-${{ steps['cliente'].output.entity.metadata.annotations['plataforma/client-id'] | lower }}-${{ steps['pull-commit'].output.shortCommit }}.localtest.me:8080/login
         icon: web
       - title: "Cliente y commit del entorno"
-        url: http://env-${{ parameters.clientId | parseEntityRef | pick('name') | lower }}-${{ steps['pull-commit'].output.shortCommit }}.localtest.me:8080/__entorno
+        url: http://env-${{ steps['cliente'].output.entity.metadata.annotations['plataforma/client-id'] | lower }}-${{ steps['pull-commit'].output.shortCommit }}.localtest.me:8080/__entorno
       - title: "Health check de la API"
-        url: http://env-${{ parameters.clientId | parseEntityRef | pick('name') | lower }}-${{ steps['pull-commit'].output.shortCommit }}.localtest.me:8080/api/v1/health
+        url: http://env-${{ steps['cliente'].output.entity.metadata.annotations['plataforma/client-id'] | lower }}-${{ steps['pull-commit'].output.shortCommit }}.localtest.me:8080/api/v1/health
     text:
       - title: "Entorno listo"
         content: |
-          **Login:** [http://env-${{ parameters.clientId | parseEntityRef | pick('name') | lower }}-${{ steps['pull-commit'].output.shortCommit }}.localtest.me:8080/login](http://env-${{ parameters.clientId | parseEntityRef | pick('name') | lower }}-${{ steps['pull-commit'].output.shortCommit }}.localtest.me:8080/login)
+          **Login:** [http://env-${{ steps['cliente'].output.entity.metadata.annotations['plataforma/client-id'] | lower }}-${{ steps['pull-commit'].output.shortCommit }}.localtest.me:8080/login](http://env-${{ steps['cliente'].output.entity.metadata.annotations['plataforma/client-id'] | lower }}-${{ steps['pull-commit'].output.shortCommit }}.localtest.me:8080/login)
 
-          Cliente **${{ parameters.clientId | parseEntityRef | pick('name') }}**, commit **${{ steps['pull-commit'].output.shortCommit }}** — ${{ steps['pull-commit'].output.message }}
+          Cliente **${{ steps['cliente'].output.entity.metadata.annotations['plataforma/client-id'] }}**, commit **${{ steps['pull-commit'].output.shortCommit }}** — ${{ steps['pull-commit'].output.message }}
           (${{ steps['pull-commit'].output.author }}, ${{ steps['pull-commit'].output.date }}).
           Listo en ${{ steps['wait-ready'].output.elapsedSeconds }}s. Usuarios de demo: `backend/src/data/users.js` del repo.
 
@@ -402,6 +411,6 @@ spec:
           es anterior a ese soporte (c509ccb) y el portal acepta a todos los clientes.
 
           ```
-          kubectl --context kind-golden-path -n env-${{ parameters.clientId | parseEntityRef | pick('name') | lower }}-${{ steps['pull-commit'].output.shortCommit }} logs deploy/portal -c backend -f
-          kubectl --context kind-golden-path delete ns env-${{ parameters.clientId | parseEntityRef | pick('name') | lower }}-${{ steps['pull-commit'].output.shortCommit }}
+          kubectl --context kind-golden-path -n env-${{ steps['cliente'].output.entity.metadata.annotations['plataforma/client-id'] | lower }}-${{ steps['pull-commit'].output.shortCommit }} logs deploy/portal -c backend -f
+          kubectl --context kind-golden-path delete ns env-${{ steps['cliente'].output.entity.metadata.annotations['plataforma/client-id'] | lower }}-${{ steps['pull-commit'].output.shortCommit }}
           ```

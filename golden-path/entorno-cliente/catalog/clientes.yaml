@@ -7,6 +7,10 @@ metadata:
   name: BA-004821
   title: "Banco Andino (BA-004821)"
   description: "Cliente del Portal de Plugins (banco-andino.js)"
+  annotations:
+    # id exacto (con mayúsculas) que usa el template; el nombre de la
+    # entidad puede llegar en minúsculas desde el dropdown
+    plataforma/client-id: "BA-004821"
   tags: [cliente]
 spec:
   type: cliente
@@ -18,6 +22,10 @@ metadata:
   name: NX-11029
   title: "NexaPay (NX-11029)"
   description: "Cliente del Portal de Plugins (nexapay.js)"
+  annotations:
+    # id exacto (con mayúsculas) que usa el template; el nombre de la
+    # entidad puede llegar en minúsculas desde el dropdown
+    plataforma/client-id: "NX-11029"
   tags: [cliente]
 spec:
   type: cliente
