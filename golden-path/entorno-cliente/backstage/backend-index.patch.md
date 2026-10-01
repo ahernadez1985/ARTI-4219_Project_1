@@ -1,13 +1,13 @@
-# Habilitar `git:pull:commit`, `http:wait` y `kube:apply` en el backend de Backstage
+# Habilitar `git:pull:commit`, `kube:pods:wait`, `http:wait` y `kube:apply` en el backend de Backstage
 
-El template usa tres acciones que no vienen con Backstage:
+El template usa cuatro acciones que no vienen con Backstage:
 
 | Acción | Paquete |
 |---|---|
-| `git:pull:commit`, `http:wait` | plugin propio de este repo: `plugins/scaffolder-backend-module-git-commit` |
+| `git:pull:commit`, `kube:pods:wait`, `http:wait` | plugin propio de este repo: `plugins/scaffolder-backend-module-git-commit` |
 | `kube:apply` | `@devangelista/backstage-scaffolder-kubernetes` (npm) |
 
-## 1. Plugin propio (`git:pull:commit` + `http:wait`)
+## 1. Plugin propio (`git:pull:commit`, `kube:pods:wait`, `http:wait`)
 
 En la raíz de tu app Backstage (la que tiene `plugins/*` en `workspaces`):
 
@@ -38,7 +38,7 @@ backend.add(import('@internal/backstage-plugin-scaffolder-backend-module-git-com
 backend.add(import('@devangelista/backstage-scaffolder-kubernetes'));
 ```
 
-Reinicia (`yarn start`) y verifica que `git:pull:commit`, `http:wait` y `kube:apply`
+Reinicia (`yarn start`) y verifica que `git:pull:commit`, `kube:pods:wait`, `http:wait` y `kube:apply`
 aparecen en `http://localhost:3000/create/actions`.
 
 `kube:apply` usa los clusters de la sección `kubernetes:` del app-config

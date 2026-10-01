@@ -33,6 +33,10 @@ Backstage (formulario: Cliente [dropdown del catálogo], gitCommit, repoUrl)
                              │    web (nginx)         : SPA + proxy /api → backend + /__entorno
                              ├─ Service portal
                              └─ Ingress env-<clientid>-<sha7>.localtest.me
+   ├─ kube:pods:wait  (plugin propio)
+   │     espera el build y el arranque; si un contenedor falla (build roto,
+   │     backend que no arranca en ese commit…) corta de inmediato con el
+   │     contenedor y la línea de error de su log
    └─ http:wait  (plugin propio)
          espera a que /__entorno responda con ese commit; el resultado del
          template muestra el link de login: http://env-<clientid>-<sha7>.localtest.me:8080/login
@@ -72,7 +76,7 @@ En el navegador:
 | Archivo | Para qué |
 |---|---|
 | `template.yaml` | Software Template de Backstage (formulario + `git:pull:commit` + `kube:apply`) |
-| `backstage/plugins/scaffolder-backend-module-git-commit/` | **Plugin nuevo**: acciones `git:pull:commit` y `http:wait` |
+| `backstage/plugins/scaffolder-backend-module-git-commit/` | **Plugin nuevo**: acciones `git:pull:commit`, `kube:pods:wait` y `http:wait` |
 | `k8s/entorno.yaml` | **Fuente única** de los manifiestos del entorno |
 | `k8s/backstage-rbac.yaml` | ServiceAccount + permisos con los que Backstage crea entornos |
 | `kind/kind-config.yaml` | Clúster de un nodo, puerto 8080 del Mac → 80 del ingress |
@@ -141,6 +145,18 @@ siguiente reintento):
 `kubectl -n env-<clientid>-<sha7> create secret generic git-credentials --from-literal=token=...`
 
 ## Diagnóstico
+
+Si el template falla en **Construir y arrancar**, el mensaje dice qué
+contenedor falló y la causa, por ejemplo:
+
+```
+El contenedor "backend" ... falló (CrashLoopBackOff): Error: Cannot find module './nexapay'
+```
+
+Eso es un problema del proyecto en ese commit, no del golden path (en este
+repo, `45f93d8` y `4c0045b` no arrancan: `index.js` importa `nexapay.js`
+antes de que exista). El namespace queda creado para poder revisarlo;
+bórralo con `./scripts/destroy-env.sh <clientId> <commit>`.
 
 Si `yarn start` de Backstage falla con `IPC request 'DevDataStore.load' ... timed out`,
 arranca backend y frontend por separado (en dos terminales):

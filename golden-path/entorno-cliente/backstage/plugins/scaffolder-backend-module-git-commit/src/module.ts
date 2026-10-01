@@ -6,6 +6,8 @@ import { ScmIntegrations } from '@backstage/integration';
 import { scaffolderActionsExtensionPoint } from '@backstage/plugin-scaffolder-node';
 import { createGitPullCommitAction } from './actions/gitPullCommit';
 import { createHttpWaitAction } from './actions/httpWait';
+import { createKubePodsWaitAction } from './actions/kubePodsWait';
+import { readKubeClusters } from './kube';
 
 export const scaffolderModuleGitCommit = createBackendModule({
   pluginId: 'scaffolder',
@@ -21,6 +23,7 @@ export const scaffolderModuleGitCommit = createBackendModule({
         scaffolder.addActions(
           createGitPullCommitAction({ integrations }),
           createHttpWaitAction(),
+          createKubePodsWaitAction({ clusters: readKubeClusters(config) }),
         );
       },
     });

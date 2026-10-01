@@ -6,12 +6,14 @@
 #                       completo y verifica que el cliente exista en él.
 #   2. kube:apply       crea en kind un namespace aislado que construye el
 #                       backend y el frontend en ese commit y los arranca.
-#   3. http:wait        espera a que el portal responda en el navegador.
+#   3. kube:pods:wait   espera el build/arranque; si un contenedor falla,
+#                       corta de inmediato mostrando sus logs.
+#   4. http:wait        espera a que el portal responda en el navegador.
 # Al terminar, el resultado muestra el link de login:
 #     http://env-<clientid>-<sha7>.localtest.me:8080/login
 #
 # Requiere en Backstage:
-#   - git:pull:commit, http:wait -> backstage/plugins/scaffolder-backend-module-git-commit
+#   - git:pull:commit, kube:pods:wait, http:wait -> backstage/plugins/scaffolder-backend-module-git-commit
 #   - kube:apply       -> @devangelista/backstage-scaffolder-kubernetes
 #   (ver backstage/backend-index.patch.md)
 #
@@ -368,6 +370,17 @@ spec:
                             name: http
           # <<< MANIFEST
 
+    # Plugin propio: espera el pod y, si un contenedor falla (build roto,
+    # backend que no arranca en ese commit…), corta YA con sus logs.
+    - id: wait-pods
+      name: "Construir y arrancar (kube:pods:wait)"
+      action: kube:pods:wait
+      input:
+        clusterName: kind-golden-path
+        namespace: env-${{ steps['cliente'].output.entity.metadata.annotations['plataforma/client-id'] | lower }}-${{ steps['pull-commit'].output.shortCommit }}
+        labelSelector: app=portal
+        timeoutSeconds: 600
+
     # Plugin propio: el template no termina hasta que el portal responde
     # en el navegador (pod listo + ingress enrutando) con ESTE commit.
     - id: wait-ready
@@ -376,15 +389,15 @@ spec:
       input:
         url: http://env-${{ steps['cliente'].output.entity.metadata.annotations['plataforma/client-id'] | lower }}-${{ steps['pull-commit'].output.shortCommit }}.localtest.me:8080/__entorno
         expectContains: ${{ steps['pull-commit'].output.commit }}
-        timeoutSeconds: 600
-        intervalSeconds: 5
+        timeoutSeconds: 120
+        intervalSeconds: 3
 
     - id: log
       name: "Resumen"
       action: debug:log
       input:
         message: >
-          Portal listo en ${{ steps['wait-ready'].output.elapsedSeconds }}s para
+          Portal listo en ${{ steps['wait-pods'].output.elapsedSeconds }}s para
           ${{ steps['cliente'].output.entity.metadata.annotations['plataforma/client-id'] }} @ ${{ steps['pull-commit'].output.shortCommit }}.
           Inicia sesión en http://env-${{ steps['cliente'].output.entity.metadata.annotations['plataforma/client-id'] | lower }}-${{ steps['pull-commit'].output.shortCommit }}.localtest.me:8080/login
 
@@ -404,7 +417,7 @@ spec:
 
           Cliente **${{ steps['cliente'].output.entity.metadata.annotations['plataforma/client-id'] }}**, commit **${{ steps['pull-commit'].output.shortCommit }}** — ${{ steps['pull-commit'].output.message }}
           (${{ steps['pull-commit'].output.author }}, ${{ steps['pull-commit'].output.date }}).
-          Listo en ${{ steps['wait-ready'].output.elapsedSeconds }}s. Usuarios de demo: `backend/src/data/users.js` del repo.
+          Listo en ${{ steps['wait-pods'].output.elapsedSeconds }}s. Usuarios de demo: `backend/src/data/users.js` del repo.
 
           Solo los usuarios de este cliente pueden entrar: el backend corre con
           `CLIENT_ID`. Si el health de la API muestra `"clientId": null`, el commit

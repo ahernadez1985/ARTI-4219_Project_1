@@ -66,6 +66,30 @@ entorno la usa para terminar solo cuando el portal ya abre en el navegador.
 
 Outputs: `url`, `elapsedSeconds`.
 
+## Acción `kube:pods:wait`
+
+Espera a que el pod más nuevo con `labelSelector` en `namespace` quede
+`Ready`. Si un init container termina con error o un contenedor queda en
+`CrashLoopBackOff`, `ImagePullBackOff`, etc., falla **de inmediato** con el
+nombre del contenedor, la primera línea de error de su log y las últimas
+líneas. También falla si el pod no consigue nodo durante
+`unschedulableSeconds` (p. ej. memoria insuficiente).
+
+Usa el cluster `clusterName` de `kubernetes.clusterLocatorMethods` (type
+`config`, con `serviceAccountToken`) del app-config: el mismo que usa
+`kube:apply`. La ServiceAccount necesita `get/list` sobre `pods` y `pods/log`.
+
+| Input | Default | Descripción |
+|---|---|---|
+| `clusterName` | — | Nombre del cluster en el app-config |
+| `namespace` | — | Namespace a vigilar |
+| `labelSelector` | — | Ej: `app=portal` |
+| `timeoutSeconds` | `600` | Tiempo máximo |
+| `unschedulableSeconds` | `90` | Cuánto tolerar un pod sin nodo |
+| `logLines` | `20` | Líneas de log en el mensaje de error |
+
+Outputs: `pod`, `elapsedSeconds`.
+
 ## Instalación
 
 Ver `../../backend-index.patch.md`.
