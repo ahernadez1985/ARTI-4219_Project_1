@@ -10,11 +10,13 @@ const { SINGLE_CLIENT_ID } = require('./config/clients');
 const authRoutes = require('./routes/auth.routes');
 const clientsRoutes = require('./routes/clients.routes');
 const transaccionesV23 = require('./routes/plugins/transacciones.v2_3.routes');
+const transaccionesV24 = require('./routes/plugins/transacciones.v2_4.routes');
 const transaccionesV31 = require('./routes/plugins/transacciones.v3_1.routes');
 const certificadosV18 = require('./routes/plugins/certificados.v1_8.routes');
 const certificadosV12 = require('./routes/plugins/certificados.v1_2.routes');
 const certificadosV13 = require('./routes/plugins/certificados.v1_3.routes');
 const limitesV10 = require('./routes/plugins/limites.v1_0.routes');
+const limitesV11 = require('./routes/plugins/limites.v1_1.routes');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -50,6 +52,14 @@ app.use(
   requirePluginVersion('transacciones', '2.3'),
   transaccionesV23
 );
+// v2.4 = mejora sobre v2.3 (columna de referencia + resumen de ingresos y
+// egresos). v2.3 sigue montada para los clientes que aún no migran.
+app.use(
+  '/api/plugins/transacciones/v2.4',
+  requireAuth,
+  requirePluginVersion('transacciones', '2.4'),
+  transaccionesV24
+);
 app.use(
   '/api/plugins/transacciones/v3.1',
   requireAuth,
@@ -82,6 +92,13 @@ app.use(
   requireAuth,
   requirePluginVersion('limites', '1.0'),
   limitesV10
+);
+// v1.1 = mejora sobre v1.0 (los límites se pueden editar).
+app.use(
+  '/api/plugins/limites/v1.1',
+  requireAuth,
+  requirePluginVersion('limites', '1.1'),
+  limitesV11
 );
 
 // --- 404 y manejo de errores ---

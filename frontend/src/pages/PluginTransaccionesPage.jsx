@@ -34,6 +34,9 @@ export default function PluginTransaccionesPage() {
         {meta.categories && <> · Categorías: {meta.categories.join(', ')}</>}
       </div>
 
+      {/* v2.4+: resumen calculado por el backend (meta.summary lo habilita) */}
+      {meta.summary && payload.summary && <SummaryCards summary={payload.summary} />}
+
       {meta.style === 'tarjetas' ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {data.map((row, i) => (
@@ -79,6 +82,33 @@ export default function PluginTransaccionesPage() {
         <DynamicTable columns={meta.columns} rows={data} />
       )}
     </PluginShell>
+  );
+}
+
+function SummaryCards({ summary }) {
+  const items = [
+    { label: 'Ingresos', value: summary.ingresos, color: '#16a34a' },
+    { label: 'Egresos', value: summary.egresos, color: '#dc2626' },
+    { label: 'Neto', value: summary.neto, color: summary.neto < 0 ? '#dc2626' : '#18181b' }
+  ];
+  return (
+    <div style={{ marginBottom: 18 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+        {items.map((item) => (
+          <div key={item.label} style={{ background: '#fff', border: '1px solid #e4e4e7', borderRadius: 12, padding: '14px 18px' }}>
+            <div style={{ fontSize: 11.5, fontWeight: 600, color: '#71717a', textTransform: 'uppercase', letterSpacing: '.03em' }}>
+              {item.label}
+            </div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: item.color, marginTop: 4 }}>
+              {item.value < 0 ? '-' : ''}${Math.abs(item.value).toLocaleString('es-CO')}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{ fontSize: 11.5, color: '#a1a1aa', marginTop: 6 }}>
+        Sobre {summary.movimientosAprobados} movimientos aprobados ({summary.moneda}).
+      </div>
+    </div>
   );
 }
 

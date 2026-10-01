@@ -38,6 +38,25 @@ export default function PluginLimitesPage() {
     }
   }
 
+  // v1.1+: ajustar el monto máximo (meta.editable). Devuelve el mensaje de
+  // error del backend para mostrarlo junto al límite, o null si guardó.
+  async function handleSaveLimit(limitId, montoMaximo) {
+    try {
+      const updated = await apiFetch(`${plugin.baseUrl}/limits/${limitId}`, {
+        method: 'PATCH',
+        token,
+        body: { montoMaximo }
+      });
+      setLimitsPayload((prev) => ({
+        ...prev,
+        limits: prev.limits.map((l) => (l.id === limitId ? updated : l))
+      }));
+      return null;
+    } catch (err) {
+      return err.message;
+    }
+  }
+
   if (!plugin) return <Shell client={client}>Este cliente no tiene el plugin de límites y alertas habilitado.</Shell>;
   if (error) return <Shell client={client}>Error: {error}</Shell>;
   if (!limitsPayload || !alerts) return <Shell client={client}>Cargando…</Shell>;
@@ -69,6 +88,9 @@ export default function PluginLimitesPage() {
                     }}
                   />
                 </div>
+                {limitsPayload.meta.editable && (
+                  <LimitEditor limit={lim} color={client.theme.primaryColor} onSave={handleSaveLimit} />
+                )}
               </div>
             );
           })}
@@ -115,6 +137,68 @@ export default function PluginLimitesPage() {
         </div>
       </div>
     </Shell>
+  );
+}
+
+function LimitEditor({ limit, color, onSave }) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(String(limit.montoMaximo));
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+
+  if (!editing) {
+    return (
+      <button
+        onClick={() => {
+          setValue(String(limit.montoMaximo));
+          setError(null);
+          setEditing(true);
+        }}
+        style={{ marginTop: 10, background: 'none', border: 'none', padding: 0, color, fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}
+      >
+        Ajustar límite
+      </button>
+    );
+  }
+
+  async function save() {
+    setSaving(true);
+    const message = await onSave(limit.id, Number(value));
+    setSaving(false);
+    if (message) setError(message);
+    else setEditing(false);
+  }
+
+  return (
+    <div style={{ marginTop: 10 }}>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <span style={{ fontSize: 13, color: '#71717a' }}>$</span>
+        <input
+          type="number"
+          min={limit.montoActual}
+          step={50000}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          style={{ flex: 1, padding: '6px 10px', borderRadius: 8, border: '1px solid #d4d4d8', fontSize: 13 }}
+          aria-label={`Nuevo monto máximo para ${limit.canal}`}
+        />
+        <button
+          onClick={save}
+          disabled={saving}
+          style={{ padding: '6px 12px', borderRadius: 8, border: 'none', background: color, color: '#fff', fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}
+        >
+          {saving ? 'Guardando…' : 'Guardar'}
+        </button>
+        <button
+          onClick={() => setEditing(false)}
+          disabled={saving}
+          style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #d4d4d8', background: '#fff', fontSize: 12.5, cursor: 'pointer' }}
+        >
+          Cancelar
+        </button>
+      </div>
+      {error && <div style={{ fontSize: 12, color: '#dc2626', marginTop: 6 }}>{error}</div>}
+    </div>
   );
 }
 

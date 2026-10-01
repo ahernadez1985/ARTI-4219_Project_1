@@ -1,4 +1,4 @@
-// Datos simulados de "Límites y Alertas" (plugin nuevo, v1.0).
+// Datos simulados de "Límites y Alertas" (v1.0 y v1.1).
 // Guarda estado mutable en memoria (como el historial de certificados) para
 // que activar/desactivar una alerta se refleje en llamadas subsiguientes
 // dentro de la misma ejecución del servidor.
@@ -24,9 +24,45 @@ const ALERTS_STORE = [
   { id: 'alerta-atm-nocturno', criterio: 'Retiro ATM entre 10pm y 6am', canalNotificacion: 'SMS', activa: false }
 ];
 
+// v1.1 = mejora sobre v1.0: el cliente puede ajustar el monto máximo de
+// cada límite (meta.editable habilita la edición en el frontend). Los
+// límites son estado mutable en memoria, separado del de v1.0, para que un
+// cliente que siga en v1.0 no vea cambios hechos desde v1.1.
+const LIMITES_V1_1 = {
+  plugin: 'limites',
+  version: '1.1',
+  meta: {
+    title: 'Límites y Alertas',
+    description: 'Configura topes de gasto por canal, ajústalos cuando lo necesites y recibe alertas cuando se acercan al máximo.',
+    editable: true,
+    maxPermitido: 20000000
+  },
+  limits: LIMITES_V1_0.limits.map((lim) => ({ ...lim }))
+};
+
 function getLimits(version) {
-  if (version !== '1.0') return null;
-  return LIMITES_V1_0;
+  if (version === '1.0') return LIMITES_V1_0;
+  if (version === '1.1') return LIMITES_V1_1;
+  return null;
+}
+
+// Solo v1.1. Devuelve { limit } o { error } con un mensaje para el usuario.
+function updateLimit(version, limitId, montoMaximo) {
+  const catalog = getLimits(version);
+  if (!catalog || !catalog.meta.editable) return { error: 'Esta versión no permite editar límites.' };
+  const limit = catalog.limits.find((l) => l.id === limitId);
+  if (!limit) return { notFound: true };
+  if (!Number.isInteger(montoMaximo) || montoMaximo <= 0) {
+    return { error: 'El monto máximo debe ser un número entero positivo.' };
+  }
+  if (montoMaximo < limit.montoActual) {
+    return { error: `El monto máximo no puede ser menor a lo ya consumido ($${limit.montoActual.toLocaleString('es-CO')}).` };
+  }
+  if (montoMaximo > catalog.meta.maxPermitido) {
+    return { error: `El monto máximo no puede superar $${catalog.meta.maxPermitido.toLocaleString('es-CO')}.` };
+  }
+  limit.montoMaximo = montoMaximo;
+  return { limit };
 }
 
 function getAlerts() {
@@ -40,4 +76,4 @@ function toggleAlert(alertId) {
   return alert;
 }
 
-module.exports = { getLimits, getAlerts, toggleAlert };
+module.exports = { getLimits, updateLimit, getAlerts, toggleAlert };
