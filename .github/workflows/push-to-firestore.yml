@@ -1,0 +1,32 @@
+name: Push to Firestore
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "backend/src/config/clients/**"
+
+permissions:
+  contents: read
+  id-token: write # necesario para autenticarse en Google Cloud sin claves
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install google-cloud-firestore
+
+      - run: python .github/scripts/publish_events.py
+        env:
+          GCP_PROJECT: ${{ vars.GCP_PROJECT }}
