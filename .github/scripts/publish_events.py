@@ -11,6 +11,7 @@ WATCH_PATH_PREFIX, WATCH_ACTIONS, DRY_RUN=1 (solo imprime, no escribe).
 import hashlib
 import json
 import os
+import subprocess
 from datetime import datetime, timezone
 
 
@@ -19,6 +20,31 @@ def parse_ts(value):
         return datetime.fromisoformat(value) if value else None
     except ValueError:
         return None
+
+
+def changed_files(commit):
+    """Archivos del commit leídos de git (no del payload).
+
+    El payload viene con las listas vacías en commits de merge de PR, así que se
+    consulta git con --first-parent. Requiere checkout con fetch-depth: 0.
+    Si git falla, se usan las listas del payload.
+    """
+    sha = commit.get("id", "")
+    try:
+        out = subprocess.run(
+            ["git", "-c", "core.quotepath=false", "diff-tree", "--no-commit-id",
+             "--name-status", "-r", "-m", "--first-parent", "--no-renames", sha],
+            capture_output=True, text=True, check=True,
+        ).stdout
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return {a: commit.get(a, []) for a in ("added", "modified", "removed")}
+    files = {"added": [], "modified": [], "removed": []}
+    kinds = {"A": "added", "M": "modified", "T": "modified", "D": "removed"}
+    for line in out.splitlines():
+        status, _, path = line.partition("\t")
+        if status[:1] in kinds and path:
+            files[kinds[status[:1]]].append(path)
+    return files
 
 
 def extract(payload, run_id):
@@ -39,10 +65,11 @@ def extract(payload, run_id):
     events = []
     for commit in payload.get("commits", []):
         sha = commit.get("id", "")
+        files = changed_files(commit)
         for action in ("added", "modified", "removed"):
             if action not in actions:
                 continue
-            for path in commit.get(action, []):
+            for path in files[action]:
                 if not path.startswith(prefix):
                     continue
                 events.append(
@@ -73,6 +100,7 @@ def main():
     with open(os.environ["GITHUB_EVENT_PATH"]) as f:
         payload = json.load(f)
     events = extract(payload, os.environ.get("GITHUB_RUN_ID", "local"))
+    print(f"Rama: {payload.get('ref')}  commits en el evento: {len(payload.get('commits', []))}")
     print(f"Archivos coincidentes: {len(events)}")
 
     if os.environ.get("DRY_RUN") == "1":
