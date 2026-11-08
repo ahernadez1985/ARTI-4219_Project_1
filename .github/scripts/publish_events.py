@@ -22,6 +22,21 @@ def parse_ts(value):
         return None
 
 
+def ensure_full_history():
+    """Con un checkout superficial (fetch-depth 1) git no ve el commit padre y
+    diff-tree no devuelve nada. Si el repo es superficial, se completa el historial."""
+    try:
+        shallow = subprocess.run(
+            ["git", "rev-parse", "--is-shallow-repository"],
+            capture_output=True, text=True, check=True,
+        ).stdout.strip()
+        if shallow == "true":
+            print("Checkout superficial: descargando historial completo")
+            subprocess.run(["git", "fetch", "--unshallow", "--quiet"], check=True)
+    except (subprocess.CalledProcessError, FileNotFoundError) as exc:
+        print(f"Aviso: no se pudo completar el historial ({exc})")
+
+
 def changed_files(commit):
     """Archivos del commit leídos de git (no del payload).
 
@@ -44,6 +59,8 @@ def changed_files(commit):
         status, _, path = line.partition("\t")
         if status[:1] in kinds and path:
             files[kinds[status[:1]]].append(path)
+    print(f"  commit {sha[:7]}: git ve {sum(map(len, files.values()))} archivo(s): "
+          + ", ".join(p for v in files.values() for p in v[:5]))
     return files
 
 
@@ -99,6 +116,7 @@ def extract(payload, run_id):
 def main():
     with open(os.environ["GITHUB_EVENT_PATH"]) as f:
         payload = json.load(f)
+    ensure_full_history()
     events = extract(payload, os.environ.get("GITHUB_RUN_ID", "local"))
     print(f"Rama: {payload.get('ref')}  commits en el evento: {len(payload.get('commits', []))}")
     print(f"Archivos coincidentes: {len(events)}")
