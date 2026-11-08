@@ -6,7 +6,7 @@ module.exports = {
   clientId: 'NX-11029',
   clientName: 'NexaPay',
   environment: 'Sandbox',
-  theme: { primaryColor: '#0E9CA6', secondaryColor: '#8A3FFC', logoInitials: 'N' },
+  theme: { primaryColor: '#0E9CA5', secondaryColor: '#8A3FFC', logoInitials: 'N' },
   plugins: [
     {
       key: 'transacciones',
