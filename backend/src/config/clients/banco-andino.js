@@ -11,8 +11,8 @@ module.exports = {
     {
       key: 'transacciones',
       name: 'Últimas Transacciones',
-      version: '2.3',
-      baseUrl: '/api/plugins/transacciones/v2.3',
+      version: '2.4',
+      baseUrl: '/api/plugins/transacciones/v2.4',
       status: 'configurado'
     },
     {
