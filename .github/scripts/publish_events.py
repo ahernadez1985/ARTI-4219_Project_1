@@ -64,6 +64,34 @@ def changed_files(commit):
     return files
 
 
+MAX_CONTENT_BYTES = 900_000  # Firestore limita cada documento a 1 MiB
+
+
+def read_content(sha, path, action):
+    """Contenido del archivo para guardarlo en el evento.
+
+    added/modified: versión en el commit. removed: versión anterior (sha^), que es
+    la que se perdió. Devuelve (contenido, estado, fuente) donde estado es
+    ok | too_large | binary | unavailable.
+    """
+    if action == "removed":
+        ref, source = f"{sha}^:{path}", "previous_commit"
+    else:
+        ref, source = f"{sha}:{path}", "commit"
+    try:
+        raw = subprocess.run(
+            ["git", "show", ref], capture_output=True, check=True
+        ).stdout
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return None, "unavailable", source
+    if len(raw) > MAX_CONTENT_BYTES:
+        return None, "too_large", source
+    try:
+        return raw.decode("utf-8"), "ok", source
+    except UnicodeDecodeError:
+        return None, "binary", source
+
+
 def extract(payload, run_id):
     branch_filter = os.environ.get("WATCH_BRANCH", "master")
     prefix = os.environ.get("WATCH_PATH_PREFIX", "backend/src/config/clients/")
@@ -89,6 +117,9 @@ def extract(payload, run_id):
             for path in files[action]:
                 if not path.startswith(prefix):
                     continue
+                content, content_status, content_source = read_content(
+                    sha, path, action
+                )
                 events.append(
                     {
                         "_id": f"{repo}:{branch}:{sha}:{action}:{path}",
@@ -106,6 +137,9 @@ def extract(payload, run_id):
                         else f"https://github.com/{repo}/blob/{sha}/{path}",
                         "author": commit.get("author", {}).get("name"),
                         "pusher": pusher,
+                        "content": content,
+                        "content_status": content_status,
+                        "content_source": content_source,
                         "committed_at": parse_ts(commit.get("timestamp")),
                         "received_at": received_at,
                     }
@@ -123,7 +157,7 @@ def main():
 
     if os.environ.get("DRY_RUN") == "1":
         for e in events:
-            print(" ", e["action"], e["path"])
+            print(" ", e["action"], e["path"], e["content_status"], repr(e["content"])[:40])
         return
 
     from google.api_core.exceptions import AlreadyExists
