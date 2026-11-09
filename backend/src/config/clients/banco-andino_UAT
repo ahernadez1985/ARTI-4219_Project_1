@@ -1,7 +1,7 @@
 module.exports = {
   clientId: 'BA-004821',
   clientName: 'Banco Andino',
-  environment: 'IST',
+  environment: 'UAT',
   theme: { primaryColor: '#2E3F68', secondaryColor: '#D6B24B', logoInitials: 'BA' },
   plugins: [
     {
